@@ -10,6 +10,7 @@ pub fn build(b: *std.build.Builder) void {
 
     exe.linkSystemLibrary("sdl2");
     exe.linkLibC();
+    exe.setLibCFile(std.build.FileSource{.path="libc-paths"}); // workaround for zig issue #8144
     exe.install();
 }
 
