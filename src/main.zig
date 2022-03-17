@@ -8,11 +8,8 @@ const window_height = 400;
 
 // playable grid
 const grid_spacing = 10;
-const boundary_thickness = 10;
-const playable_width = window_width - 2 * boundary_thickness;
-const playable_height = window_height - 2 * boundary_thickness;
-const grid_width = playable_width / grid_spacing;
-const grid_height = playable_height / grid_spacing;
+const grid_width = window_width / grid_spacing;
+const grid_height = window_height / grid_spacing;
 
 const Color = struct {
     r: u8,
@@ -22,8 +19,8 @@ const Color = struct {
 };
 
 const GridPoint = struct {
-    x: u8 = 0,
-    y: u8 = 0,
+    x: u8,
+    y: u8,
 };
 
 const Pixel = struct {
@@ -33,10 +30,18 @@ const Pixel = struct {
 
 fn gridPointToPixel(gp: GridPoint) Pixel {
     const pixel: Pixel = .{
-        .x = @as(u16, gp.x) * grid_spacing + boundary_thickness,
-        .y = @as(u16, gp.y) * grid_spacing + boundary_thickness,
+        .x = @as(u16, gp.x) * grid_spacing,
+        .y = @as(u16, gp.y) * grid_spacing,
     };
     return pixel;
+}
+
+fn pixelToGridPoint(pixel: Pixel) GridPoint {
+    const gp: GridPoint = .{
+        .x = pixel.x / grid_spacing,
+        .y = pixel.y / grid_spacing,
+    };
+    return gp;
 }
 
 const Cell = enum {
@@ -45,6 +50,7 @@ const Cell = enum {
     tail,
     food,
     empty,
+    wall,
 };
 
 const Direction = enum {
@@ -75,6 +81,17 @@ pub fn main() anyerror!void {
     grid[5][5] = .food;
     grid[10][10] = .head;
     grid[10][9] = .tail;
+    // boundary
+    for (grid[0]) |*top_cell| {
+        top_cell.* = .wall;
+    }
+    for (grid[grid_height-1]) |*bottom_cell| {
+        bottom_cell.* = .wall;
+    }
+    for (grid) |*row| {
+        row[0] = .wall;
+        row[grid_width-1] = .wall;
+    }
 
     var frame: usize = 0;
     mainloop: while (true) {
@@ -86,45 +103,7 @@ pub fn main() anyerror!void {
             }
         }
 
-        // background color
-        const background_color = Color{ .r = 0xaf, .g = 0xaf, .b = 0xaf, .a = 0xff };
-        _ = c.SDL_SetRenderDrawColor(renderer, background_color.r, background_color.g, background_color.b, background_color.a);
-        _ = c.SDL_RenderClear(renderer);
 
-        // boundary of game
-        const boundary_color = Color{ .r = 0x7f, .g = 0x3f, .b = 0x3f, .a = 0xff };
-        const boundary_left = c.SDL_Rect{ .x = 0, .y = 0, .w = boundary_thickness, .h = window_height };
-        const boundary_top = c.SDL_Rect{ .x = 0, .y = 0, .w = window_width, .h = boundary_thickness };
-        const boundary_bottom = c.SDL_Rect{ .x = window_width - boundary_thickness, .y = 0, .w = boundary_thickness, .h = window_height };
-        const boundary_right = c.SDL_Rect{ .x = 0, .y = window_height - boundary_thickness, .w = window_width, .h = boundary_thickness };
-        _ = c.SDL_SetRenderDrawColor(renderer, boundary_color.r, boundary_color.g, boundary_color.b, boundary_color.a);
-        _ = c.SDL_RenderFillRect(renderer, &boundary_left);
-        _ = c.SDL_RenderFillRect(renderer, &boundary_top);
-        _ = c.SDL_RenderFillRect(renderer, &boundary_bottom);
-        _ = c.SDL_RenderFillRect(renderer, &boundary_right);
-
-        // draw grid lines
-        const draw_grid = true;
-        if (draw_grid) {
-            const grid_color = Color{ .r = 0x2f, .g = 0x2f, .b = 0x2f, .a = 0xff };
-            _ = c.SDL_SetRenderDrawColor(renderer, grid_color.r, grid_color.g, grid_color.b, grid_color.a);
-            {
-                var x: u8 = 0;
-                while (x <= grid_width) : (x += 1) {
-                    const pixel = gridPointToPixel(.{ .x = x, .y = 0 });
-                    const line = c.SDL_Rect{ .x = pixel.x, .y = pixel.y, .w = 1, .h = playable_height };
-                    _ = c.SDL_RenderFillRect(renderer, &line);
-                }
-            }
-            {
-                var y: u8 = 0;
-                while (y <= grid_height) : (y += 1) {
-                    const pixel = gridPointToPixel(.{ .x = 0, .y = y });
-                    const line = c.SDL_Rect{ .x = pixel.x, .y = pixel.y, .w = playable_width, .h = 1 };
-                    _ = c.SDL_RenderFillRect(renderer, &line);
-                }
-            }
-        }
 
         // update game state
         var next_head_y: i8 = undefined;
@@ -159,9 +138,38 @@ pub fn main() anyerror!void {
             }
         }
 
+        // background color
+        const background_color = Color{ .r = 0xaf, .g = 0xaf, .b = 0xaf, .a = 0xff };
+        _ = c.SDL_SetRenderDrawColor(renderer, background_color.r, background_color.g, background_color.b, background_color.a);
+        _ = c.SDL_RenderClear(renderer);
+
+        // draw grid lines
+        const draw_grid = true;
+        if (draw_grid) {
+            const grid_color = Color{ .r = 0x2f, .g = 0x2f, .b = 0x2f, .a = 0xff };
+            _ = c.SDL_SetRenderDrawColor(renderer, grid_color.r, grid_color.g, grid_color.b, grid_color.a);
+            {
+                var x: u8 = 0;
+                while (x < grid_width) : (x += 1) {
+                    const pixel = gridPointToPixel(.{ .x = x, .y = 0 });
+                    const line = c.SDL_Rect{ .x = pixel.x, .y = pixel.y, .w = 1, .h = window_height };
+                    _ = c.SDL_RenderFillRect(renderer, &line);
+                }
+            }
+            {
+                var y: u8 = 0;
+                while (y < grid_height) : (y += 1) {
+                    const pixel = gridPointToPixel(.{ .x = 0, .y = y });
+                    const line = c.SDL_Rect{ .x = pixel.x, .y = pixel.y, .w = window_width, .h = 1 };
+                    _ = c.SDL_RenderFillRect(renderer, &line);
+                }
+            }
+        }
+
         // draw game state
         const snake_color = Color{ .r=0x2f, .g=0x8f, .b=0x2f, .a=0xff };
         const food_color = Color{ .r=0x8f, .g=0x2f, .b=0x2f, .a=0xff };
+        const wall_color = Color{ .r = 0x7f, .g = 0x3f, .b = 0x3f, .a = 0xff };
         for (grid) |row, y| {
             for (row) |cell, x| {
                 const gp = GridPoint{.x=@truncate(u8,x), .y=@truncate(u8,y)};
@@ -176,6 +184,11 @@ pub fn main() anyerror!void {
                         const food_rect = c.SDL_Rect{ .x = pixel.x, .y=pixel.y, .w=grid_spacing+1, .h=grid_spacing+1 };
                         _ = c.SDL_SetRenderDrawColor(renderer, food_color.r, food_color.g, food_color.b, food_color.a);
                         _ = c.SDL_RenderFillRect(renderer, &food_rect);
+                    },
+                    .wall => {
+                        const wall_rect = c.SDL_Rect{ .x = pixel.x, .y=pixel.y, .w=grid_spacing+1, .h=grid_spacing+1 };
+                        _ = c.SDL_SetRenderDrawColor(renderer, wall_color.r, wall_color.g, wall_color.b, wall_color.a);
+                        _ = c.SDL_RenderFillRect(renderer, &wall_rect);
                     },
                     .empty => {},
                 }
