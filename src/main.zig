@@ -78,6 +78,7 @@ pub fn main() anyerror!void {
     // initial game state
     var snake_direction:Direction = .east;
     var snake_length: u16 = 2;
+    var snake_alive: bool = true;
     var grid : [grid_height][grid_width]Cell = undefined;
     for (grid) |*row| {
         for (row) |*cell| {
@@ -118,9 +119,9 @@ pub fn main() anyerror!void {
         }
 
         // calculate next game state
-        for (grid) |*row, y| {
-            for (row) |*cell, x| {
-                switch(cell.*) {
+        for (grid) |row, y| {
+            for (row) |cell, x| {
+                switch(cell) {
                     .snake => |distance_to_head| {
                         grid_next[y][x] = Cell{ .snake = distance_to_head + 1 };
                         if (distance_to_head == 0) switch (snake_direction) {
@@ -140,15 +141,34 @@ pub fn main() anyerror!void {
                         };
                         if (distance_to_head + 1 >= snake_length) grid_next[y][x] = CellType.empty;
                     },
+                    .wall, .food => grid_next[y][x] = cell,
+                    else => {},
+                }
+            }
+        }
+
+        // Search for collisions with head
+        for (grid_next) |row, y| {
+            for (row) |cell_next, x| {
+                const cell = grid[y][x];
+                switch (cell_next) {
+                    .snake => |distance_to_head| {
+                        if (distance_to_head == 0) switch (cell) {
+                            .wall, .snake => snake_alive = false,
+                            else => {},
+                        };
+                    },
                     else => {},
                 }
             }
         }
 
         // store next game state into current game state
-        for (grid) |*row, y| {
-            for (row) |*cell, x| {
-                cell.* = grid_next[y][x];
+        if (snake_alive) {
+            for (grid) |*row, y| {
+                for (row) |*cell, x| {
+                    cell.* = grid_next[y][x];
+                }
             }
         }
 
