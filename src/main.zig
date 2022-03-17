@@ -76,10 +76,10 @@ pub fn main() anyerror!void {
     defer c.SDL_DestroyRenderer(renderer);
 
     // initial game state
-    var snake_direction:Direction = .east;
+    var snake_direction: Direction = .east;
     var snake_length: u16 = 2;
     var snake_alive: bool = true;
-    var grid : [grid_height][grid_width]Cell = undefined;
+    var grid: [grid_height][grid_width]Cell = undefined;
     for (grid) |*row| {
         for (row) |*cell| {
             cell.* = CellType.empty;
@@ -92,12 +92,12 @@ pub fn main() anyerror!void {
     for (grid[0]) |*top_cell| {
         top_cell.* = .wall;
     }
-    for (grid[grid_height-1]) |*bottom_cell| {
+    for (grid[grid_height - 1]) |*bottom_cell| {
         bottom_cell.* = .wall;
     }
     for (grid) |*row| {
         row[0] = .wall;
-        row[grid_width-1] = .wall;
+        row[grid_width - 1] = .wall;
     }
 
     var frame: usize = 0;
@@ -111,7 +111,7 @@ pub fn main() anyerror!void {
         }
 
         // initialize next game state
-        var grid_next : [grid_height][grid_width]Cell = undefined;
+        var grid_next: [grid_height][grid_width]Cell = undefined;
         for (grid_next) |*row| {
             for (row) |*cell| {
                 cell.* = CellType.empty;
@@ -121,22 +121,22 @@ pub fn main() anyerror!void {
         // calculate next game state
         for (grid) |row, y| {
             for (row) |cell, x| {
-                switch(cell) {
+                switch (cell) {
                     .snake => |distance_to_head| {
                         grid_next[y][x] = Cell{ .snake = distance_to_head + 1 };
                         if (distance_to_head == 0) switch (snake_direction) {
                             // Assumes head coordinate is >0 and <grid_width-1 or grid_height-1 (aka not already in wall)
                             .north => {
-                                grid_next[y-1][x] = Cell{ .snake = 0 };
+                                grid_next[y - 1][x] = Cell{ .snake = 0 };
                             },
                             .east => {
-                                grid_next[y][x+1] = Cell{ .snake = 0 };
+                                grid_next[y][x + 1] = Cell{ .snake = 0 };
                             },
                             .south => {
-                                grid_next[y+1][x] = Cell{ .snake = 0 };
+                                grid_next[y + 1][x] = Cell{ .snake = 0 };
                             },
                             .west => {
-                                grid_next[y][x-1] = Cell{ .snake = 0 };
+                                grid_next[y][x - 1] = Cell{ .snake = 0 };
                             },
                         };
                         if (distance_to_head + 1 >= snake_length) grid_next[y][x] = CellType.empty;
@@ -201,26 +201,26 @@ pub fn main() anyerror!void {
         }
 
         // draw game state
-        const snake_color = Color{ .r=0x2f, .g=0x8f, .b=0x2f, .a=0xff };
-        const food_color = Color{ .r=0x8f, .g=0x2f, .b=0x2f, .a=0xff };
+        const snake_color = Color{ .r = 0x2f, .g = 0x8f, .b = 0x2f, .a = 0xff };
+        const food_color = Color{ .r = 0x8f, .g = 0x2f, .b = 0x2f, .a = 0xff };
         const wall_color = Color{ .r = 0x7f, .g = 0x3f, .b = 0x3f, .a = 0xff };
         for (grid) |row, y| {
             for (row) |cell, x| {
-                const gp = GridPoint{.x=@truncate(u8,x), .y=@truncate(u8,y)};
+                const gp = GridPoint{ .x = @truncate(u8, x), .y = @truncate(u8, y) };
                 const pixel = gridPointToPixel(gp);
                 switch (cell) {
                     .snake => {
-                        const snake_rect = c.SDL_Rect{ .x = pixel.x, .y=pixel.y, .w=grid_spacing+1, .h=grid_spacing+1 };
+                        const snake_rect = c.SDL_Rect{ .x = pixel.x, .y = pixel.y, .w = grid_spacing + 1, .h = grid_spacing + 1 };
                         _ = c.SDL_SetRenderDrawColor(renderer, snake_color.r, snake_color.g, snake_color.b, snake_color.a);
                         _ = c.SDL_RenderFillRect(renderer, &snake_rect);
                     },
                     .food => {
-                        const food_rect = c.SDL_Rect{ .x = pixel.x, .y=pixel.y, .w=grid_spacing+1, .h=grid_spacing+1 };
+                        const food_rect = c.SDL_Rect{ .x = pixel.x, .y = pixel.y, .w = grid_spacing + 1, .h = grid_spacing + 1 };
                         _ = c.SDL_SetRenderDrawColor(renderer, food_color.r, food_color.g, food_color.b, food_color.a);
                         _ = c.SDL_RenderFillRect(renderer, &food_rect);
                     },
                     .wall => {
-                        const wall_rect = c.SDL_Rect{ .x = pixel.x, .y=pixel.y, .w=grid_spacing+1, .h=grid_spacing+1 };
+                        const wall_rect = c.SDL_Rect{ .x = pixel.x, .y = pixel.y, .w = grid_spacing + 1, .h = grid_spacing + 1 };
                         _ = c.SDL_SetRenderDrawColor(renderer, wall_color.r, wall_color.g, wall_color.b, wall_color.a);
                         _ = c.SDL_RenderFillRect(renderer, &wall_rect);
                     },
