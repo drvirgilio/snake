@@ -44,13 +44,18 @@ fn pixelToGridPoint(pixel: Pixel) GridPoint {
     return gp;
 }
 
-const Cell = enum {
-    head,
-    body,
-    tail,
+const CellType = enum {
+    snake,
     food,
     empty,
     wall,
+};
+
+const Cell = union(CellType) {
+    snake: u16, // distance to head
+    food: void,
+    empty: void,
+    wall: void,
 };
 
 const Direction = enum {
@@ -72,15 +77,16 @@ pub fn main() anyerror!void {
 
     // initial game state
     var snake_direction:Direction = .east;
+    var snake_length: u16 = 2;
     var grid : [grid_height][grid_width]Cell = undefined;
     for (grid) |*row| {
         for (row) |*cell| {
-            cell.* = .empty;
+            cell.* = CellType.empty;
         }
     }
-    grid[5][5] = .food;
-    grid[10][10] = .head;
-    grid[10][9] = .tail;
+    grid[5][5] = CellType.food;
+    grid[10][10] = Cell{ .snake = 0 };
+    grid[10][9] = Cell{ .snake = 1 };
     // boundary
     for (grid[0]) |*top_cell| {
         top_cell.* = .wall;
@@ -103,38 +109,46 @@ pub fn main() anyerror!void {
             }
         }
 
+        // initialize next game state
+        var grid_next : [grid_height][grid_width]Cell = undefined;
+        for (grid_next) |*row| {
+            for (row) |*cell| {
+                cell.* = CellType.empty;
+            }
+        }
 
-
-        // update game state
-        var next_head_y: i8 = undefined;
-        var next_head_x: i8 = undefined;
-//         var next_tail_y: i8 = undefined;
-//         var next_tail_x: i8 = undefined;
-        for (grid) |*row, j| {
-            for (row) |*cell, i| {
-                const y = @intCast(i8,@truncate(u7, j));
-                const x = @intCast(i8,@truncate(u7, i));
+        // calculate next game state
+        for (grid) |*row, y| {
+            for (row) |*cell, x| {
                 switch(cell.*) {
-                    .head => switch (snake_direction) {
-                        .north => {
-                            next_head_x = x;
-                            next_head_y = y - 1;
-                        },
-                        .east => {
-                            next_head_x = x + 1;
-                            next_head_y = y;
-                        },
-                        .south => {
-                            next_head_x = x;
-                            next_head_y = y+1;
-                        },
-                        .west => {
-                            next_head_x = x - 1;
-                            next_head_y = y;
-                        },
+                    .snake => |distance_to_head| {
+                        grid_next[y][x] = Cell{ .snake = distance_to_head + 1 };
+                        if (distance_to_head == 0) switch (snake_direction) {
+                            // Assumes head coordinate is >0 and <grid_width-1 or grid_height-1 (aka not already in wall)
+                            .north => {
+                                grid_next[y-1][x] = Cell{ .snake = 0 };
+                            },
+                            .east => {
+                                grid_next[y][x+1] = Cell{ .snake = 0 };
+                            },
+                            .south => {
+                                grid_next[y+1][x] = Cell{ .snake = 0 };
+                            },
+                            .west => {
+                                grid_next[y][x-1] = Cell{ .snake = 0 };
+                            },
+                        };
+                        if (distance_to_head + 1 >= snake_length) grid_next[y][x] = CellType.empty;
                     },
                     else => {},
                 }
+            }
+        }
+
+        // store next game state into current game state
+        for (grid) |*row, y| {
+            for (row) |*cell, x| {
+                cell.* = grid_next[y][x];
             }
         }
 
@@ -175,7 +189,7 @@ pub fn main() anyerror!void {
                 const gp = GridPoint{.x=@truncate(u8,x), .y=@truncate(u8,y)};
                 const pixel = gridPointToPixel(gp);
                 switch (cell) {
-                    .head,.body,.tail => {
+                    .snake => {
                         const snake_rect = c.SDL_Rect{ .x = pixel.x, .y=pixel.y, .w=grid_spacing+1, .h=grid_spacing+1 };
                         _ = c.SDL_SetRenderDrawColor(renderer, snake_color.r, snake_color.g, snake_color.b, snake_color.a);
                         _ = c.SDL_RenderFillRect(renderer, &snake_rect);
