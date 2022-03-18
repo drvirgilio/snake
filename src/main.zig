@@ -103,12 +103,27 @@ pub fn main() anyerror!void {
     var frame: usize = 0;
     mainloop: while (true) {
         var sdl_event: c.SDL_Event = undefined;
+        var snake_direction_want: ?Direction = null;
         while (c.SDL_PollEvent(&sdl_event) != 0) {
             switch (sdl_event.type) {
                 c.SDL_QUIT => break :mainloop,
+                c.SDL_KEYDOWN => switch (sdl_event.key.keysym.scancode) {
+                    c.SDL_SCANCODE_LEFT  => snake_direction_want = .west,
+                    c.SDL_SCANCODE_RIGHT => snake_direction_want = .east,
+                    c.SDL_SCANCODE_UP => snake_direction_want = .north,
+                    c.SDL_SCANCODE_DOWN => snake_direction_want = .south,
+                    else => {},
+                },
                 else => {},
             }
         }
+
+        snake_direction = if (snake_direction_want) |want| switch (want) {
+            .north => if (snake_direction != .south) want else snake_direction,
+            .east => if (snake_direction != .west) want else snake_direction,
+            .south => if (snake_direction != .north) want else snake_direction,
+            .west => if (snake_direction != .east) want else snake_direction,
+        } else snake_direction;
 
         // initialize next game state
         var grid_next: [grid_height][grid_width]Cell = undefined;
