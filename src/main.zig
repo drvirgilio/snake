@@ -75,6 +75,9 @@ pub fn main() anyerror!void {
     var renderer = c.SDL_CreateRenderer(window, 0, c.SDL_RENDERER_PRESENTVSYNC);
     defer c.SDL_DestroyRenderer(renderer);
 
+    // Random number generator
+    var rnd = std.rand.DefaultPrng.init(0);
+
     // initial game state
     var snake_direction: Direction = .east;
     var snake_length: u16 = 2;
@@ -156,13 +159,15 @@ pub fn main() anyerror!void {
                         };
                         if (distance_to_head + 1 >= snake_length) grid_next[y][x] = CellType.empty;
                     },
-                    .wall, .food => grid_next[y][x] = cell,
+                    .wall => grid_next[y][x] = cell,
+                    .food => if (grid_next[y][x] != .snake) { grid_next[y][x] = cell; },
                     else => {},
                 }
             }
         }
 
         // Search for collisions with head
+        var flag_food_eaten: bool = false;
         for (grid_next) |row, y| {
             for (row) |cell_next, x| {
                 const cell = grid[y][x];
@@ -170,10 +175,51 @@ pub fn main() anyerror!void {
                     .snake => |distance_to_head| {
                         if (distance_to_head == 0) switch (cell) {
                             .wall, .snake => snake_alive = false,
+                            .food => {
+                                snake_length += 1;
+                                flag_food_eaten = true;
+                            },
                             else => {},
                         };
                     },
                     else => {},
+                }
+            }
+        }
+
+        // Add new food to grid
+        if (flag_food_eaten) {
+            // Count the number of empty spaces which is needed for upper bound of random number (needed to ensure uniform distribution)
+            const num_empty: usize = blk: {
+                var ret: usize = 0;
+                for (grid_next) |row| {
+                    for (row) |cell| {
+                        switch (cell) {
+                            .empty => ret += 1,
+                            else => {},
+                        }
+                    }
+                }
+                break :blk ret;
+            };
+
+            // Generate random number
+            const random_empty_index = rnd.random().uintLessThan(usize, num_empty);
+
+            // put food in random empty location
+            var empty_index: usize = 0;
+            food_loop: for (grid_next) |*row| {
+                for (row) |*cell| {
+                    switch(cell.*) {
+                        .empty => {
+                            if (empty_index == random_empty_index) {
+                                cell.* = .food;
+                                break :food_loop;
+                            }
+                            empty_index += 1;
+                        },
+                        else => {},
+                    }
                 }
             }
         }
@@ -193,7 +239,7 @@ pub fn main() anyerror!void {
         _ = c.SDL_RenderClear(renderer);
 
         // draw grid lines
-        const draw_grid = true;
+        const draw_grid = false;
         if (draw_grid) {
             const grid_color = Color{ .r = 0x2f, .g = 0x2f, .b = 0x2f, .a = 0xff };
             _ = c.SDL_SetRenderDrawColor(renderer, grid_color.r, grid_color.g, grid_color.b, grid_color.a);
