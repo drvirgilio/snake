@@ -245,6 +245,10 @@ pub fn main() anyerror!void {
         }
 
         c.SDL_RenderPresent(renderer);
+        // delay until the next multiple of n milliseconds
+        const frame_delay_ms = 100;
+        const delay_millis = frame_delay_ms - (c.SDL_GetTicks() % frame_delay_ms);
+        c.SDL_Delay(delay_millis);
         frame += 1;
     }
 }
