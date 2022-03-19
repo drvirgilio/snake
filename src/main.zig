@@ -7,7 +7,7 @@ const window_width = 640;
 const window_height = 400;
 
 // playable grid
-const grid_spacing = 10;
+const grid_spacing = 20;
 const grid_width = window_width / grid_spacing;
 const grid_height = window_height / grid_spacing;
 
@@ -111,7 +111,7 @@ pub fn main() anyerror!void {
             switch (sdl_event.type) {
                 c.SDL_QUIT => break :mainloop,
                 c.SDL_KEYDOWN => switch (sdl_event.key.keysym.scancode) {
-                    c.SDL_SCANCODE_LEFT  => snake_direction_want = .west,
+                    c.SDL_SCANCODE_LEFT => snake_direction_want = .west,
                     c.SDL_SCANCODE_RIGHT => snake_direction_want = .east,
                     c.SDL_SCANCODE_UP => snake_direction_want = .north,
                     c.SDL_SCANCODE_DOWN => snake_direction_want = .south,
@@ -160,7 +160,9 @@ pub fn main() anyerror!void {
                         if (distance_to_head + 1 >= snake_length) grid_next[y][x] = CellType.empty;
                     },
                     .wall => grid_next[y][x] = cell,
-                    .food => if (grid_next[y][x] != .snake) { grid_next[y][x] = cell; },
+                    .food => if (grid_next[y][x] != .snake) {
+                        grid_next[y][x] = cell;
+                    },
                     else => {},
                 }
             }
@@ -187,8 +189,22 @@ pub fn main() anyerror!void {
             }
         }
 
+        // search for existence of head
+        var head_found: bool = false;
+        for (grid_next) |row| {
+            for (row) |cell_next| {
+                switch (cell_next) {
+                    .snake => |distance_to_head| {
+                        if (distance_to_head == 0) head_found = true;
+                    },
+                    else => {},
+                }
+            }
+        }
+        if (!head_found) snake_alive = false;
+
         // Add new food to grid
-        if (flag_food_eaten) {
+        if (flag_food_eaten and snake_alive) {
             // Count the number of empty spaces which is needed for upper bound of random number (needed to ensure uniform distribution)
             const num_empty: usize = blk: {
                 var ret: usize = 0;
@@ -210,7 +226,7 @@ pub fn main() anyerror!void {
             var empty_index: usize = 0;
             food_loop: for (grid_next) |*row| {
                 for (row) |*cell| {
-                    switch(cell.*) {
+                    switch (cell.*) {
                         .empty => {
                             if (empty_index == random_empty_index) {
                                 cell.* = .food;
@@ -230,6 +246,32 @@ pub fn main() anyerror!void {
                 for (row) |*cell, x| {
                     cell.* = grid_next[y][x];
                 }
+            }
+        }
+
+        // Reset if snake dies
+        if (!snake_alive) {
+            snake_direction = .east;
+            snake_length = 2;
+            snake_alive = true;
+            for (grid) |*row| {
+                for (row) |*cell| {
+                    cell.* = CellType.empty;
+                }
+            }
+            grid[5][5] = CellType.food;
+            grid[10][10] = Cell{ .snake = 0 };
+            grid[10][9] = Cell{ .snake = 1 };
+            // boundary
+            for (grid[0]) |*top_cell| {
+                top_cell.* = .wall;
+            }
+            for (grid[grid_height - 1]) |*bottom_cell| {
+                bottom_cell.* = .wall;
+            }
+            for (grid) |*row| {
+                row[0] = .wall;
+                row[grid_width - 1] = .wall;
             }
         }
 
